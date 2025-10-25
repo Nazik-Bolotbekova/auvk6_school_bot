@@ -1,13 +1,12 @@
 from aiogram import types
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-main_page_keyboard = types.ReplyKeyboardMarkup(
-    keyboard=[
+inline_keyboards = types.InlineKeyboardMarkup(
+    inline_keyboard=[
         [
-            types.KeyboardButton(text="Оставить предложение📝")
+            types.InlineKeyboardButton(text="Оставить предложение 📝", callback_data="request"),
         ],
         [
-            types.KeyboardButton(text="Сообщить о проблеме ⚠")
+            types.InlineKeyboardButton(text="Сообщить о проблеме ⚠️", callback_data="problem")
         ]
     ],
     resize_keyboard=True
