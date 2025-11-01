@@ -2,14 +2,15 @@ import asyncio
 import os
 
 from aiogram.enums import ParseMode
+from aiogram.fsm.context import FSMContext
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, FSInputFile, CallbackQuery
 
-from keyboard import inline_keyboards, inline_keyboard_2
-
+from keyboard import inline_keyboards
+from states import  AllStates
 
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -30,33 +31,89 @@ async def start_command(message: Message):
 
 
 @dp.callback_query()
-async def callback_query_2(callback: CallbackQuery):
-    if callback.data == 'anon':
-        pass
-    elif callback.data == 'not_anon':
-        user_info = callback.from_user
-
-
-@dp.message(F.text)
-async def message_handler(message: Message):
-    nonlocal user_info
-    await message.answer('Ваше сообщение принято!', reply_markup=inline_keyboard_2)
-    await bot.send_message(
-        chat_id=GROUP_ID,
-        text=(
-                 f"Сообщение от {user.info},{message.text}"
-             ))
-
-
-
-@dp.callback_query()
-async def callback_query(callback: CallbackQuery):
+async def callback_query(callback: CallbackQuery, state: FSMContext):
     if callback.data == 'request':
+        await state.set_state(AllStates.request)
         await callback.message.answer('Напиши свою идею ✏')
     elif callback.data == 'problem':
+        await state.set_state(AllStates.problem)
         await callback.message.answer('Опиши проблему, которую заметил(а) в школе 🏫')
     else:
         pass
+
+
+@dp.message(AllStates.request)
+async def save_message(message: Message, state: FSMContext):
+    await state.update_data(request=message.text)
+    await state.set_state(AllStates.anon_not_anon)
+    await message.answer('Анонимно или не анонимно?')
+
+
+
+@dp.message(AllStates.anon_not_anon)
+async def anon_not_anon(message: Message, state: FSMContext):
+    await state.update_data(anon_not_anon=message.text)
+    data = await state.get_data()
+    if data['anon_not_anon'].lower() == 'анонимно':
+        await bot.send_message(
+            chat_id=GROUP_ID,
+            text=(
+                f"Сообщение: {data.get('request')}"
+            ))
+    elif data['anon_not_anon'].lower() == 'не анонимно':
+        await bot.send_message(
+            chat_id=GROUP_ID,
+            text=(
+                f"Сообщение от {message.from_user.username}: {data.get('request')}"
+            ))
+
+
+
+
+
+
+
+
+
+# @dp.message(Command('anon_not_anon'))
+# async def anon_not_anon_command(message: Message, state: FSMContext):
+#     await state.set_state(AnonOrNotAnon.anon_not_anon)
+#     await message.answer('Анонимно или не анонимно?')
+
+
+
+
+# @dp.callback_query()
+# async def callback_query_2(callback: CallbackQuery):
+#     if callback.data == 'anon':
+#         pass
+#     elif callback.data == 'not_anon':
+#         pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# @dp.message(F.text)
+# async def message_handler(message: Message):
+#     await message.answer('Ваше сообщение принято!', reply_markup=inline_keyboard_2)
+#     await bot.send_message(
+#         chat_id=GROUP_ID,
+#         text=(
+#                  f"Сообщение: {message.text}"
+#              ))
+
+
+
 
 
 
