@@ -21,7 +21,6 @@ dp = Dispatcher()
 
 
 
-
 @dp.message(Command('start'))
 async def start_command(message: Message):
     photo = FSInputFile("image/photo_5467860983105060122_y.jpg")        # старт команда
@@ -52,7 +51,6 @@ async def save_message(message: Message, state: FSMContext):
 
 
 
-
 @dp.message(AllStates.problem)
 async def save_message(message: Message, state: FSMContext):
     await state.update_data(problem=message.text)
@@ -61,33 +59,40 @@ async def save_message(message: Message, state: FSMContext):
 
 
 
-
-
-
-
-
-
-
 @dp.message(AllStates.anon_not_anon)
 async def anon_not_anon(message: Message, state: FSMContext):
     await state.update_data(anon_not_anon=message.text)
     data = await state.get_data()
+
     if data['type'] == 'request':
         text = data.get('request')
     elif data['type'] == 'problem':
         text = data.get('problem')
-    if data['anon_not_anon'].lower() == 'анонимно':
+
+
+    if data['anon_not_anon'].lower() in ('анонимно', 'анон'):
         await bot.send_message(
             chat_id=GROUP_ID,
             text=(
                 f"Сообщение: {text}"
             ))
-    elif data['anon_not_anon'].lower() == 'не анонимно':
+
+        await message.answer('Ваше сообщение принято!')
+
+    elif data['anon_not_anon'].lower() in ('не анонимно', 'не анон','неанон'):
         await bot.send_message(
             chat_id=GROUP_ID,
             text=(
                 f"Сообщение от {message.from_user.username}: {text}"
             ))
+
+
+        await message.answer('Ваше сообщение принято!')
+
+    else:
+        await message.answer('Напишите правильно: анонимно - анон, не анонимно - не анон')
+
+
 
 
 
