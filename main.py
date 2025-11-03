@@ -24,7 +24,7 @@ dp = Dispatcher()
 
 @dp.message(Command('start'))
 async def start_command(message: Message):
-    photo = FSInputFile("image/photo_5467860983105060122_y.jpg")
+    photo = FSInputFile("image/photo_5467860983105060122_y.jpg")        # старт команда
     text = ("<b>Привет!</b> Я твой школьный бот.\n"
             "Можно писать <i>анонимно</i> или от своего имени")
     await message.answer_photo(photo=photo, caption=text,parse_mode=ParseMode.HTML, reply_markup=inline_keyboards)
@@ -34,9 +34,11 @@ async def start_command(message: Message):
 async def callback_query(callback: CallbackQuery, state: FSMContext):
     if callback.data == 'request':
         await state.set_state(AllStates.request)
-        await callback.message.answer('Напиши свою идею ✏')
+        await state.update_data(type='request')
+        await callback.message.answer('Напиши свою идею ✏')             # коллбэки на инлайн клавиатуру и фсм
     elif callback.data == 'problem':
         await state.set_state(AllStates.problem)
+        await state.update_data(type='problem')
         await callback.message.answer('Опиши проблему, которую заметил(а) в школе 🏫')
     else:
         pass
@@ -50,21 +52,41 @@ async def save_message(message: Message, state: FSMContext):
 
 
 
+
+@dp.message(AllStates.problem)
+async def save_message(message: Message, state: FSMContext):
+    await state.update_data(problem=message.text)
+    await state.set_state(AllStates.anon_not_anon)
+    await message.answer('Анонимно или не анонимно?')
+
+
+
+
+
+
+
+
+
+
 @dp.message(AllStates.anon_not_anon)
 async def anon_not_anon(message: Message, state: FSMContext):
     await state.update_data(anon_not_anon=message.text)
     data = await state.get_data()
+    if data['type'] == 'request':
+        text = data.get('request')
+    elif data['type'] == 'problem':
+        text = data.get('problem')
     if data['anon_not_anon'].lower() == 'анонимно':
         await bot.send_message(
             chat_id=GROUP_ID,
             text=(
-                f"Сообщение: {data.get('request')}"
+                f"Сообщение: {text}"
             ))
     elif data['anon_not_anon'].lower() == 'не анонимно':
         await bot.send_message(
             chat_id=GROUP_ID,
             text=(
-                f"Сообщение от {message.from_user.username}: {data.get('request')}"
+                f"Сообщение от {message.from_user.username}: {text}"
             ))
 
 
@@ -74,43 +96,6 @@ async def anon_not_anon(message: Message, state: FSMContext):
 
 
 
-
-# @dp.message(Command('anon_not_anon'))
-# async def anon_not_anon_command(message: Message, state: FSMContext):
-#     await state.set_state(AnonOrNotAnon.anon_not_anon)
-#     await message.answer('Анонимно или не анонимно?')
-
-
-
-
-# @dp.callback_query()
-# async def callback_query_2(callback: CallbackQuery):
-#     if callback.data == 'anon':
-#         pass
-#     elif callback.data == 'not_anon':
-#         pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# @dp.message(F.text)
-# async def message_handler(message: Message):
-#     await message.answer('Ваше сообщение принято!', reply_markup=inline_keyboard_2)
-#     await bot.send_message(
-#         chat_id=GROUP_ID,
-#         text=(
-#                  f"Сообщение: {message.text}"
-#              ))
 
 
 
