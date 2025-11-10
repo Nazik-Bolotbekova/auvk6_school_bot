@@ -21,5 +21,4 @@ inline_keyboard_2 = types.InlineKeyboardMarkup(
             types.InlineKeyboardButton(text="Не анон 🙋", callback_data="not_anon")
         ]
     ],
-    resize_keyboard=True
 )
