@@ -22,3 +22,13 @@ inline_keyboard_2 = types.InlineKeyboardMarkup(
         ]
     ],
 )
+
+
+inline_keyboard_3 = types.InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+        types.InlineKeyboardButton(text="Да", callback_data='yes_cancel'),
+        types.InlineKeyboardButton(text="Нет", callback_data='no_cancel')
+            ]
+    ]
+)

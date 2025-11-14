@@ -5,6 +5,7 @@ class AllStates(StatesGroup):
     problem = State()
     anon_not_anon = State()
     full_name_and_grade = State()
+    сonfirm_cancel = State()
 
 
 
