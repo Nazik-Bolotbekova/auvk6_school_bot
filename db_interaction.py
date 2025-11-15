@@ -14,17 +14,15 @@ class Database:
             user_id INTEGER NULL,
             username TEXT NULL,
             message TEXT NOT NULL,
-            is_anon BOOLEAN NOT NULL DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            is_anon BOOLEAN NOT NULL DEFAULT 0
             )
             ''')
 
             await db.execute('''
             CREATE TABLE IF NOT EXISTS USERS (
             user_id INTEGER PRIMARY KEY NULL,
-            username TEXT NULL,
-            fullname_andgrade TEXT NULL,
-            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
+            username TEXT NULL
+            )
             ''')
 
             await db.commit()
@@ -59,6 +57,17 @@ class Database:
             async with db.execute('''
             SELECT * FROM MESSAGES
             ORDER BY created_at DESC
+            LIMIT ?''', (limit,)) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+
+    async def get_users(self, limit: int = 100):
+        async with aiosqlite.connect(self.db_file) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute('''
+            SELECT * FROM USERS
+            ORDER BY user_id
             LIMIT ?''', (limit,)) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
