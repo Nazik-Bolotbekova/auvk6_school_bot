@@ -5,11 +5,10 @@ class Database:
         self.db_file = db_file
 
 
-
     async def init_db(self):
-        async with aiosqlite.connect(self.db_file) as db:
+        async with aiosqlite.connect(self.db_file) as db:      # создаем бд
             await db.execute('''
-            CREATE TABLE IF NOT EXISTS MESSAGES (
+            CREATE TABLE IF NOT EXISTS MESSAGES (               
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NULL,
             username TEXT NULL,
@@ -71,7 +70,6 @@ class Database:
             LIMIT ?''', (limit,)) as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
-
 
 
     async def get_stats(self):

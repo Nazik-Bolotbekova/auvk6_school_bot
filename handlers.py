@@ -1,37 +1,26 @@
 import os
 from aiogram import Bot, Dispatcher, Router, F
-
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
-
 from dotenv import load_dotenv
-
 from aiogram.filters import  Command
 from aiogram.types import Message, FSInputFile, CallbackQuery
-
 from keyboard import inline_keyboards, inline_keyboard_2, inline_keyboard_3
 from states import  AllStates
 from db_interaction import Database
-
 from additional_functions import chunk_text, log_location_chat
-
 from datetime import datetime, timezone, timedelta
-
 from bot_logconfig import logger
+
 
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 GROUP_ID = os.getenv('GROUP_ID')
 
 db = Database()
-
-
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-
 router = Router()
-
-
 
 
 @router.message(Command('start'))
@@ -52,7 +41,7 @@ async def start_command(message: Message):
 
 @router.message(Command('stats'))
 async def stats_command(message: Message):
-    stats = await db.get_stats()
+    stats = await db.get_stats()                # команда статов
     text = (f"Всего сообщений: {stats['total_messages']}\n"
             f"Всего анонимных сообщений: {stats['anon_messages']}\n"
             f"Всего пользователей: {stats['total_users']}")
@@ -65,16 +54,12 @@ async def stats_command(message: Message):
 
 
 @router.message(Command('get_messages'))
-async def get_all_messages(message: Message):
+async def get_all_messages(message: Message):      # команда списка всех смс из бд
     messages = await db.get_all_messages()
-
     if not messages:
         await message.answer("Пока сообщений нет")
         return
-
     text = ""
-
-
     for msg in messages:
         utc = datetime.fromisoformat(msg['created_at']).replace(tzinfo=timezone.utc)
         local = utc.astimezone(timezone(timedelta(hours=6)))
@@ -86,21 +71,18 @@ async def get_all_messages(message: Message):
             f"Аноним: {msg['is_anon']}\n"
             f"Время: {formatted}\n\n"
         )
-
     for chunk in chunk_text(text):
         await message.answer(chunk)
         log_location_chat(message, 'requested get_messages command')
 
 
+
 @router.message(Command('get_users'))
 async def get_all_users(message: Message):
-    users = await db.get_users()
-
+    users = await db.get_users()                 # команда списка всех юзеров из бд
     if not users:
         await message.answer('Пользователей пока нет')
         return
-
-
     text = ""
     for user in users:
         text += (
@@ -113,22 +95,15 @@ async def get_all_users(message: Message):
 
 
 
-
-
-
-
-
-@router.message(Command('get_instruction'))
-async def get_instruction(message: Message):
-    text = (f"Привет! Команды которыми ты можешь воспользоваться:\n\n"
+@router.message(Command('help'))
+async def help_command(message: Message):
+    text = (f"Привет! Команды которыми ты можешь воспользоваться:\n\n"      # инструкция
             f"/get_messages - список всех сообщений\n"
             f"/get_users - список всех пользователей\n"
             f"/stats - статы\n"
-            f"/get_instruction - данная инструкция")
+            f"/help - данная инструкция")
     await message.answer(text)
-    log_location_chat(message, 'requested get_instruction command')
-
-
+    log_location_chat(message, 'requested /help command')
 
 
 
@@ -140,27 +115,32 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
     if not text:
         await callback.message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
+        logger.info(f'Not found {message_type} in {callback.message.chat.id} by {callback.message.from_user.username}')
         return
-
     if callback.data == 'anon':
-        await bot.send_message(GROUP_ID, f"Анонимное сообщение: {text}")
-        await db.add_message(
-            user_id=callback.from_user.id,
-            username=callback.from_user.username,
-            message=text,
-            is_anon=True
-        )
-        logger.info(f'Saved user`s-{callback.message.from_user.username}/message-({text}) to db STATUS ANON')
-
-
+        try:
+            await bot.send_message(GROUP_ID, f"Анонимное сообщение: {text}")
+        except Exception as e:
+            logger.error(f'FAILED to send ANON message to {callback.message.chat.id}: {e}')
+            await callback.message.answer('Не получилость отправить сообщение. повтори попытку позже')
+            return
+        try:
+            await db.add_message(
+                user_id=callback.from_user.id,
+                username=callback.from_user.username,
+                message=text,
+                is_anon=True
+            )
+            logger.info(f'Saved user`s-{callback.message.from_user.username}/message-({text}) to db STATUS ANON')
+        except Exception as e:
+            logger.error(f'FAILED to save ANON message ({callback.message.from_user.username}-{text}) to db {e}')
+            await callback.message.answer('Не удалось сохранить сообщение. повтори попытку позже')
+            return
         await state.update_data({message_type: None})
         await callback.message.answer('Сообщение отправлено! ✅')
-
     elif callback.data == 'not_anon':
         await state.set_state(AllStates.full_name_and_grade)
         await callback.message.answer('Напиши имя, фамилию и класс 📝:')
-
-
 
 
 
@@ -170,26 +150,31 @@ async def full_name_and_grade(message: Message, state: FSMContext):
     data = await state.get_data()
     message_type = data.get('type')
     text = data.get(message_type, 'Ошибка: текст не найден')
-
     if not text:
         await message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
+        logger.info(f'Not found {message_type} in {message.chat.id} by {message.from_user.username}')
         return
-
     if data['type'] == 'request' or data['type'] == 'problem':
-        await bot.send_message(GROUP_ID, f'Сообщение от ученика {data.get("full_name_and_grade")}: {text}')
-        await db.add_message(
-            user_id=message.from_user.id,
-            username=message.from_user.username,
-            message=text,
-            is_anon=False
-        )
-        logger.info(f'Saved user`s {message.from_user.username}/message ({text}) to db STATUS NOT_ANON')
+        try:
+            await bot.send_message(GROUP_ID, f'Сообщение от ученика {data.get("full_name_and_grade")}: {text}')
+        except Exception as e:
+            logger.error(f'FAILED to SEND {data.get("full_name_and_grade")}: {text} message: {e}')
+            return
+        try:
+            await db.add_message(
+                user_id=message.from_user.id,
+                username=message.from_user.username,
+                message=text,
+                is_anon=False
+            )
+            logger.info(f'Saved user`s {message.from_user.username}/message ({text}) to db STATUS NOT_ANON')
+        except Exception as e:
+            logger.error(f'FAILED to SAVE {data.get("full_name_and_grade")}: {text} message: {e}')
+            return
         await state.update_data({message_type: None})
         await message.answer('Сообщение отправлено! ✅')
-    await state.clear()
-
-
+        await state.clear()
 
 
 
@@ -214,21 +199,16 @@ async def callback_query(callback: CallbackQuery, state: FSMContext):
 
 
 
-
-
 @router.message(AllStates.request)
-async def save_message(message: Message, state: FSMContext):
+async def save_request(message: Message, state: FSMContext):
     await state.update_data(request=message.text)
     await state.set_state(AllStates.anon_not_anon)
     await message.answer('Окей, теперь выбери способ отправки:', reply_markup=inline_keyboard_2)
 
 
 
-
-
 @router.callback_query(F.data.in_(['yes_cancel', 'no_cancel']))
-async def cancel_message(callback: CallbackQuery, state: FSMContext):
-
+async def cancel_message(callback: CallbackQuery, state: FSMContext):         # хэндлер коллбэков отмены
         if callback.data == 'yes_cancel':
             await state.clear()
             await callback.message.answer('Действие отменено\n\nЧтобы начать заново, нажми /start')
@@ -241,24 +221,9 @@ async def cancel_message(callback: CallbackQuery, state: FSMContext):
 
 
 
-
-
-
-
-
-
-
-
-
-
 @router.message(AllStates.problem)
-async def save_message(message: Message, state: FSMContext):
+async def save_problem(message: Message, state: FSMContext):
     await state.update_data(problem=message.text)
     await state.set_state(AllStates.anon_not_anon)
     await message.answer("Окей, теперь выбери способ отправки 🖇", reply_markup=inline_keyboard_2)
     logger.info('')
-
-
-
-
-
