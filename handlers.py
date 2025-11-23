@@ -1,21 +1,16 @@
-import os
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
-from dotenv import load_dotenv
 from aiogram.filters import  Command
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from keyboard import inline_keyboards, inline_keyboard_2, inline_keyboard_3
 from states import  AllStates
-from db_interaction import Database
-from additional_functions import chunk_text, log_location_chat
+from database.db_interaction import Database
+from utils.service import chunk_text, log_location_chat, choose_topic, generate_summary
 from datetime import datetime, timezone, timedelta
-from bot_logconfig import logger
+from utils.bot_logconfig import logger
+from config import BOT_TOKEN, GROUP_ID
 
-
-load_dotenv()
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-GROUP_ID = os.getenv('GROUP_ID')
 
 db = Database()
 bot = Bot(token=BOT_TOKEN)
@@ -112,6 +107,8 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     message_type = data.get('type')
     text = data.get(message_type)
+    topic_id = choose_topic(message_type)
+
     if not text:
         await callback.message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
@@ -119,11 +116,12 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
         return
     if callback.data == 'anon':
         try:
-            await bot.send_message(GROUP_ID, f"Анонимное сообщение: {text}")
+            await bot.send_message(GROUP_ID, f"Анонимное сообщение: {text}",message_thread_id=topic_id)
         except Exception as e:
             logger.error(f'FAILED to send ANON message to {callback.message.chat.id}: {e}')
             await callback.message.answer('Не получилость отправить сообщение. повтори попытку позже')
             return
+
         try:
             await db.add_message(
                 user_id=callback.from_user.id,
@@ -143,13 +141,13 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer('Напиши имя, фамилию и класс 📝:')
 
 
-
 @router.message(AllStates.full_name_and_grade)
 async def full_name_and_grade(message: Message, state: FSMContext):
     await state.update_data(full_name_and_grade=message.text)
     data = await state.get_data()
     message_type = data.get('type')
-    text = data.get(message_type, 'Ошибка: текст не найден')
+    text = data.get(message_type)
+    topic_id = choose_topic(message_type)
     if not text:
         await message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
@@ -157,7 +155,7 @@ async def full_name_and_grade(message: Message, state: FSMContext):
         return
     if data['type'] == 'request' or data['type'] == 'problem':
         try:
-            await bot.send_message(GROUP_ID, f'Сообщение от ученика {data.get("full_name_and_grade")}: {text}')
+            await bot.send_message(GROUP_ID, f'Сообщение от ученика {data.get("full_name_and_grade")}: {text}', message_thread_id=topic_id)
         except Exception as e:
             logger.error(f'FAILED to SEND {data.get("full_name_and_grade")}: {text} message: {e}')
             return
@@ -227,3 +225,10 @@ async def save_problem(message: Message, state: FSMContext):
     await state.set_state(AllStates.anon_not_anon)
     await message.answer("Окей, теперь выбери способ отправки 🖇", reply_markup=inline_keyboard_2)
     logger.info('')
+
+
+@router.message(Command('generate_report'))
+async def generate_report(message: Message):
+    user_messages = await db.get_all_messages()
+    report = await generate_summary(user_messages)
+    await message.answer(report)

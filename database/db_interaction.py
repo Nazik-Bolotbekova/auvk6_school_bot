@@ -13,14 +13,16 @@ class Database:
             user_id INTEGER NULL,
             username TEXT NULL,
             message TEXT NOT NULL,
-            is_anon BOOLEAN NOT NULL DEFAULT 0
+            is_anon BOOLEAN NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             ''')
 
             await db.execute('''
             CREATE TABLE IF NOT EXISTS USERS (
             user_id INTEGER PRIMARY KEY NULL,
-            username TEXT NULL
+            username TEXT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             ''')
 
