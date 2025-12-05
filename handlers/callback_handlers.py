@@ -1,104 +1,64 @@
-from aiogram import Bot, Dispatcher, Router, F
-from aiogram.enums import ParseMode
+from aiogram import Bot, Router, F
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import  Command
-from aiogram.types import Message, FSInputFile, CallbackQuery
-from keyboard import inline_keyboards, inline_keyboard_2, inline_keyboard_3
+from aiogram.types import Message, CallbackQuery
+from keyboard import  inline_keyboard_2, inline_keyboard_3
 from states import  AllStates
-from database.db_interaction import Database
-from utils.service import chunk_text, log_location_chat, choose_topic, generate_summary
-from datetime import datetime, timezone, timedelta
+from utils.service import choose_topic, analyze_message
 from utils.bot_logconfig import logger
-from config import BOT_TOKEN, GROUP_ID
+from config import BOT_TOKEN, GROUP_ID, FILTER_GROUP_ID
+from handlers.message_handlers import db
+from aiogram.filters import StateFilter
 
-
-db = Database()
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
 router = Router()
 
 
-@router.message(Command('start'))
-async def start_command(message: Message):
-    logger.info(f"User #{message.from_user.id}/{message.from_user.username} started the bot.")
-    await db.add_user(
-        user_id=message.from_user.id,
-        username=message.from_user.username,
-    )
-    logger.info(f'Saved User #{message.from_user.id}/{message.from_user.username} to db')
-    photo = FSInputFile("image/photo_5467860983105060122_y.jpg")        # старт команда
-    text = ("<b>Привет!</b> Я твой школьный бот.\n"
-            "Можно писать <i>анонимно</i> или от своего имени.\n\n\n<b>Если хочешь начать заново или написать что-то новое, просто нажми /start или введи эту команду.</b>")
-    await message.answer_photo(photo=photo, caption=text,parse_mode=ParseMode.HTML, reply_markup=inline_keyboards)
-    logger.info(f'Sent start screen to user {message.from_user.id}/{message.from_user.username}')
+
+async def handle_toxic_message(message: Message):
+    user_id = message.from_user.id
+
+    warnings = await db.get_warnings(user_id)
+    warnings += 1
+    await db.update_warnings(user_id, warnings)
+
+    await bot.send_message(FILTER_GROUP_ID, f"{message.from_user.username}: {message.text}")
+
+    if warnings == 1:
+        await message.answer('Без токсичности! Это твое первое предупреждение.')
+        logger.info(f'FIRST WARNING {message.from_user.username}: {message.text}')
+    elif warnings == 2:
+        await message.answer('Пиши по делу! Это твое второе предупреждение')
+        logger.info(f'SECOND WARNING {message.from_user.username}: {message.text}')
+    elif warnings >= 3:
+        await message.answer('Данные о твоем аккаунте улетели в чат модерации. Я предупреждал')
+        logger.info(f'THIRD WARNING {message.from_user.username}: {message.text}')
+    return
 
 
 
-@router.message(Command('stats'))
-async def stats_command(message: Message):
-    stats = await db.get_stats()                # команда статов
-    text = (f"Всего сообщений: {stats['total_messages']}\n"
-            f"Всего анонимных сообщений: {stats['anon_messages']}\n"
-            f"Всего пользователей: {stats['total_users']}")
-    await message.answer(text)
-    if message.chat.type == 'private':
-        logger.info(f'User #{message.from_user.id}/{message.from_user.username} requested stats in a PRIVATE chat')
-    else:
-        logger.info(f'User #{message.from_user.id}/{message.from_user.username} requested stats in a CHAT #{message.chat.id}')
+@router.message(F.chat.type == 'private',)
+async def moderator_entry(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+    logger.info(f"MODERATOR CHECK: state={current_state}, text={message.text[:50]}")
 
 
+    analysis = await analyze_message(message_text=message.text)
+    logger.info(f"ANALYSIS RESULT: {analysis}")
 
-@router.message(Command('get_messages'))
-async def get_all_messages(message: Message):      # команда списка всех смс из бд
-    messages = await db.get_all_messages()
-    if not messages:
-        await message.answer("Пока сообщений нет")
+    if analysis == "not_okay":
+        await handle_toxic_message(message)
         return
-    text = ""
-    for msg in messages:
-        utc = datetime.fromisoformat(msg['created_at']).replace(tzinfo=timezone.utc)
-        local = utc.astimezone(timezone(timedelta(hours=6)))
-        formatted = local.strftime("%d.%m.%Y %H:%M")
-        text += (
-            f"📨Сообщение #{msg['id']}\n"
-            f"От: @{msg['username']}\n"
-            f"Текст: {msg['message']}\n"
-            f"Аноним: {msg['is_anon']}\n"
-            f"Время: {formatted}\n\n"
-        )
-    for chunk in chunk_text(text):
-        await message.answer(chunk)
-        log_location_chat(message, 'requested get_messages command')
+
+    elif analysis == "model_failed":
+        await message.answer('Фильтр бота сейчас завис, попробуй еще раз')
+        logger.info(f"MODEL FAILED for {message.from_user.username}")
+
+    logger.info(f"MESSAGE PASSED FILTER, going to next handlers: {message.text[:50]}")
 
 
 
-@router.message(Command('get_users'))
-async def get_all_users(message: Message):
-    users = await db.get_users()                 # команда списка всех юзеров из бд
-    if not users:
-        await message.answer('Пользователей пока нет')
-        return
-    text = ""
-    for user in users:
-        text += (
-            f"Список пользователей:\n "
-            f"#{user['user_id']} - {user['username']}\n\n"
-        )
-    for chunk in chunk_text(text):
-        await message.answer(chunk)
-        log_location_chat(message, 'requested get_users command')
 
 
-
-@router.message(Command('help'))
-async def help_command(message: Message):
-    text = (f"Привет! Команды которыми ты можешь воспользоваться:\n\n"      # инструкция
-            f"/get_messages - список всех сообщений\n"
-            f"/get_users - список всех пользователей\n"
-            f"/stats - статы\n"
-            f"/help - данная инструкция")
-    await message.answer(text)
-    log_location_chat(message, 'requested /help command')
 
 
 
@@ -112,7 +72,7 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
     if not text:
         await callback.message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
-        logger.info(f'Not found {message_type} in {callback.message.chat.id} by {callback.message.from_user.username}')
+        logger.info(f'NOT FOUND {message_type} in {callback.message.chat.id} by {callback.message.from_user.username}')
         return
     if callback.data == 'anon':
         try:
@@ -129,9 +89,9 @@ async def anon_not_anon(callback: CallbackQuery, state: FSMContext):
                 message=text,
                 is_anon=True
             )
-            logger.info(f'Saved user`s-{callback.message.from_user.username}/message-({text}) to db STATUS ANON')
+            logger.info(f'SAVED {callback.message.from_user.username} message to db STATUS ANON')
         except Exception as e:
-            logger.error(f'FAILED to save ANON message ({callback.message.from_user.username}-{text}) to db {e}')
+            logger.error(f'FAILED to save ANON message {callback.message.from_user.username} to db {e}')
             await callback.message.answer('Не удалось сохранить сообщение. повтори попытку позже')
             return
         await state.update_data({message_type: None})
@@ -151,7 +111,7 @@ async def full_name_and_grade(message: Message, state: FSMContext):
     if not text:
         await message.answer('Ошибка: текст не найден\n\n'
                                       'Попробуй начать заново /start')
-        logger.info(f'Not found {message_type} in {message.chat.id} by {message.from_user.username}')
+        logger.info(f'NOT_FOUND {message_type} in {message.chat.id} by {message.from_user.username}')
         return
     if data['type'] == 'request' or data['type'] == 'problem':
         try:
@@ -166,7 +126,7 @@ async def full_name_and_grade(message: Message, state: FSMContext):
                 message=text,
                 is_anon=False
             )
-            logger.info(f'Saved user`s {message.from_user.username}/message ({text}) to db STATUS NOT_ANON')
+            logger.info(f'SAVED {message.from_user.username} message to db STATUS NOT_ANON')
         except Exception as e:
             logger.error(f'FAILED to SAVE {data.get("full_name_and_grade")}: {text} message: {e}')
             return
@@ -189,11 +149,13 @@ async def callback_query(callback: CallbackQuery, state: FSMContext):
         await state.set_state(AllStates.request)
         await state.update_data(type='request')
         await callback.message.answer('Напиши свою идею ✏')
+        logger.info('request text sent')
                                                                   # коллбэки на инлайн клавиатуру и фсм
     elif callback.data == 'problem':
         await state.set_state(AllStates.problem)
         await state.update_data(type='problem')
         await callback.message.answer('Опиши проблему, которую заметил(а) в школе 🏫')
+        logger.info('problem text sent')
 
 
 
@@ -210,12 +172,12 @@ async def cancel_message(callback: CallbackQuery, state: FSMContext):         # 
         if callback.data == 'yes_cancel':
             await state.clear()
             await callback.message.answer('Действие отменено\n\nЧтобы начать заново, нажми /start')
-            logger.info(f'User {callback.from_user.username} called CANCEL command')
+            logger.info(f"CANCEL confirmed by {callback.from_user.username}")
         elif callback.data == 'no_cancel':
             current_state = await state.get_state()
             await state.set_state(current_state)
             await callback.message.answer('Продолжай писать свое сообщение')
-            logger.info(f'User {callback.from_user.username} called NO CANCEL command')
+            logger.info(f"CANCEL rejected by {callback.from_user.username}")
 
 
 
@@ -224,11 +186,23 @@ async def save_problem(message: Message, state: FSMContext):
     await state.update_data(problem=message.text)
     await state.set_state(AllStates.anon_not_anon)
     await message.answer("Окей, теперь выбери способ отправки 🖇", reply_markup=inline_keyboard_2)
-    logger.info('')
 
 
-@router.message(Command('generate_report'))
-async def generate_report(message: Message):
-    user_messages = await db.get_all_messages()
-    report = await generate_summary(user_messages)
-    await message.answer(report)
+
+# @router.message(F.chat.type == 'private')
+# async def moderator_entry(message: Message):
+#     analysis = await analyze_message(message_text=message.text)
+#
+#     if analysis == "not_okay":
+#         await handle_toxic_message(message)
+#         return
+#
+#     elif analysis == "model_failed":
+#         await message.answer('Фильтр бота сейчас завис, попробуй еще раз')
+#         logger.info(f"MODEL FAILED for {message.from_user.username}")
+#         return False
+#
+#     return False
+
+
+

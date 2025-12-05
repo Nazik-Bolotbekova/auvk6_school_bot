@@ -22,9 +22,21 @@ class Database:
             CREATE TABLE IF NOT EXISTS USERS (
             user_id INTEGER PRIMARY KEY NULL,
             username TEXT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            warnings INTEGER DEFAULT 0,
+            last_warning TIMESTAMP NULL
             )
             ''')
+
+            await db.execute('''
+            CREATE TABLE IF NOT EXISTS BANNED_USERS (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT NULL,
+            banned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            banned_until TIMESTAMP NULL
+            )
+            ''')
+
 
             await db.commit()
         print('db initialized')
@@ -63,7 +75,7 @@ class Database:
                 return [dict(row) for row in rows]
 
 
-    async def get_users(self, limit: int = 100):
+    async def get_users(self, limit: int = 200):
         async with aiosqlite.connect(self.db_file) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute('''
@@ -88,6 +100,29 @@ class Database:
             return dict(total_messages=total_messages,
                         anon_messages=anon_messages,
                         total_users=total_users)
+
+    async def update_warnings(self, user_id: int, warnings: int):
+        async with aiosqlite.connect(self.db_file) as db:
+            await db.execute('''
+                INSERT INTO USERS (user_id, warnings) VALUES(?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                warnings = excluded.warnings
+            ''', (user_id, warnings))
+            await db.commit()
+
+
+    async def get_warnings(self, user_id: int):
+        async with aiosqlite.connect(self.db_file) as db:
+            async with db.execute('''
+            SELECT warnings FROM USERS
+            WHERE user_id = ?''', (user_id,)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return 0
+                return row[0]
+
+
+
 
 
 
