@@ -9,7 +9,6 @@ def chunk_text(text: str, size: int = 4096):
 
 
 def log_location_chat(message: Message, action: str):
-    user_id = message.from_user.id
     username = message.from_user.username              # для логов (проверка чата либо лички)
     chat_id = message.chat.id
     if message.chat.type == 'private':
@@ -84,6 +83,8 @@ async def analyze_message(message_text: str):
 Сообщение: "{message_text}"
 
 Отвечай строго JSON и ничего больше.
+
+Если ты получаешь фотку а не текст игнорируб
 """
 
     async with httpx.AsyncClient() as client:
@@ -97,6 +98,7 @@ async def analyze_message(message_text: str):
         )
 
     data = r.json()
+
     logger.debug("MODEL RAW DATA: %s", data)
 
     if "choices" not in data or not data["choices"]:
@@ -108,15 +110,9 @@ async def analyze_message(message_text: str):
     except KeyError:
         return "model_failed"
 
-
-
     analysis = extract_analysis(raw)
     logger.info(f"DEBUG ANALYSIS -> user=%s text=%r {analysis}")
     return analysis
-
-
-
-
 
 
 import json
@@ -140,37 +136,3 @@ def extract_analysis(raw: str) -> str:
     except Exception:
         logger.exception("Ошибка при парсинге raw")
         return "model_failed"
-
-
-
-
-
-# def extract_analysis(raw: str) -> str:
-#     # если ответ пустой или вообще не строка → сразу ошибка
-#     if not raw or not isinstance(raw, str):
-#         return "model_failed"
-#
-#     try:
-#         # достаём JSON из текста типа: "Вот ваш JSON { ... } спасибо!"
-#         match = re.search(r"\{.*\}", raw, flags=re.S)
-#         if not match:
-#             return "model_failed"
-#
-#         json_str = match.group(0)
-#         data = json.loads(json_str)
-#
-#         analysis = data.get("analysis")
-#         if analysis in ("okay", "not_okay"):
-#             return analysis
-#
-#         return "model_failed"
-#
-#     except Exception:
-#         return "model_failed"
-
-
-
-
-
-
-
