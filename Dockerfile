@@ -17,5 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем остальной проект
 COPY . .
 
+COPY .env.prod .env
+
 # Запуск бота
 CMD ["python", "main.py"]
