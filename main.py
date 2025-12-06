@@ -8,7 +8,6 @@ from handlers.message_handlers import db
 
 
 
-
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(message_router)
