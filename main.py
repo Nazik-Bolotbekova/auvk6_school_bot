@@ -43,7 +43,8 @@ async def start_http_server():
 
 async def main():
     await db.init_db()
-    asyncio.create_task(start_http_server())
+    await start_http_server()
+    await asyncio.sleep(2)
     await dp.start_polling(bot)
 
 
