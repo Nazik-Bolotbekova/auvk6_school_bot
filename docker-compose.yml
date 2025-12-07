@@ -4,8 +4,6 @@ services:
   auvk6_bot:
     build: .
     env_file: .env
-    volumes:
-      - ./database:/auvk6_bot/database
     restart: unless-stopped
 
 
