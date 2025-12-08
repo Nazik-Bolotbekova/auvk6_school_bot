@@ -2,8 +2,9 @@ import asyncio
 import os
 from aiohttp import web
 from aiogram.fsm.storage.memory import MemoryStorage
-from config import BOT_TOKEN
 from aiogram import Bot, Dispatcher
+from utils.bot_logconfig import logger
+from config import BOT_TOKEN
 from handlers.message_handlers import router as message_router
 from handlers.callback_handlers import router as callback_router
 from handlers.message_handlers import db
@@ -43,6 +44,7 @@ async def start_http_server():
 
 async def main():
     await db.init_db()
+    logger.info('DB initialized')
     await start_http_server()
     await asyncio.sleep(2)
     await dp.start_polling(bot)
