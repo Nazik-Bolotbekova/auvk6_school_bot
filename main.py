@@ -41,7 +41,6 @@ async def start_http_server():
 
 
 
-
 async def main():
     await db.init_db()
     logger.info('DB initialized')

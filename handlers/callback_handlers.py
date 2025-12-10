@@ -126,13 +126,13 @@ async def callback_query(callback: CallbackQuery, state: FSMContext):
         await state.set_state(AllStates.request)
         await state.update_data(type='request')
         await callback.message.answer('Напиши свою идею ✏')
-        logger.info('request text sent')
+        logger.info('REQUEST TEXT SENT')
                                                                   # коллбэки на инлайн клавиатуру и фсм
     elif callback.data == 'problem':
         await state.set_state(AllStates.problem)
         await state.update_data(type='problem')
         await callback.message.answer('Опиши проблему, которую заметил(а) в школе 🏫')
-        logger.info('problem text sent')
+        logger.info('PROBLEM TEXT SENT')
 
 
 

@@ -29,7 +29,7 @@ async def start_command(message: Message):
 
 
 
-@router.message(Command('stats'))
+@router.message(Command('stats_5'))
 async def stats_command(message: Message):
     stats = await db.get_stats()                # команда статов
     text = (f"Всего сообщений: {stats['total_messages']}\n"
@@ -43,7 +43,7 @@ async def stats_command(message: Message):
 
 
 
-@router.message(Command('get_messages'))
+@router.message(Command('get_messages_5'))
 async def get_all_messages(message: Message):      # команда списка всех смс из бд
     messages = await db.get_all_messages()
     if not messages:
@@ -63,11 +63,32 @@ async def get_all_messages(message: Message):      # команда списка
         )
     for chunk in chunk_text(text):
         await message.answer(chunk)
-        log_location_chat(message, 'GET_MESSAGES sent')
+        log_location_chat(message, 'GET_MESSAGES REQUESTED')
+
+@router.message(Command('get_last_messages_10'))
+async def get_last_messages(message: Message):
+    messages = await db.get_last_messages()
+    if not messages:
+        await message.answer('Пока сообщений нет')
+        return
+    text = ""
+    for msg in messages:
+        utc = datetime.fromisoformat(msg['created_at']).replace(tzinfo=timezone.utc)
+        local = utc.astimezone(timezone(timedelta(hours=6)))
+        formatted = local.strftime("%d.%m.%Y %H:%M")
+        text += (
+            f"📨Сообщение #{msg['id']}\n"
+            f"От: @{msg['username']}\n"
+            f"Текст: {msg['message']}\n"
+            f"Аноним: {msg['is_anon']}\n"
+            f"Время: {formatted}\n\n"
+        )
+        for chunk in chunk_text(text):
+            await message.answer(chunk)
+            log_location_chat(message, 'GET_LAST_MESSAGES REQUESTED')
 
 
-
-@router.message(Command('get_users'))
+@router.message(Command('get_users_5'))
 async def get_all_users(message: Message):
     users = await db.get_users()                 # команда списка всех юзеров из бд
     if not users:
@@ -84,19 +105,21 @@ async def get_all_users(message: Message):
 
 
 
-@router.message(Command('help'))
+@router.message(Command('help_5'))
 async def help_command(message: Message):
     text = (f"Привет! Команды которыми ты можешь воспользоваться:\n\n"      # инструкция
-            f"/get_messages - список всех сообщений\n"
-            f"/get_users - список всех пользователей\n"
-            f"/stats - статы\n"
-            f"/generate_report - генерация отчета исходя из всех сообщений\n"
-            f"/help - данная инструкция")
+            f"/get_messages_5 - список всех сообщений\n"
+            f"/get_last_messages_10 - cписок последних десяти сообщений\n"
+            f"/get_users_5 - список всех пользователей\n"
+            f"/stats_5 - статы\n"
+            f"/generate_report_5 - генерация отчета исходя из всех сообщений\n"
+            f"/help_5 - данная инструкция")
     await message.answer(text)
     log_location_chat(message, 'HELP/ requested by')
 
 
-@router.message(Command('generate_report'))
+
+@router.message(Command('generate_report_5'))
 async def generate_report(message: Message):
     user_messages = await db.get_all_messages()
     report = await generate_summary(user_messages)

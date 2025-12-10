@@ -64,7 +64,18 @@ class Database:
         return cursor.lastrowid
 
 
-    async def get_all_messages(self, limit: int = 100):
+    async def get_all_messages(self, limit: int = 300):
+        async with aiosqlite.connect(self.db_file) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute('''
+            SELECT * FROM MESSAGES
+            ORDER BY created_at DESC
+            LIMIT ?''', (limit,)) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+
+    async def get_last_messages(self, limit: int = 10):
         async with aiosqlite.connect(self.db_file) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute('''
@@ -100,6 +111,7 @@ class Database:
             return dict(total_messages=total_messages,
                         anon_messages=anon_messages,
                         total_users=total_users)
+
 
     async def update_warnings(self, user_id: int, warnings: int):
         async with aiosqlite.connect(self.db_file) as db:

@@ -15,8 +15,8 @@ PROBLEM_TOPIC_ID = int(os.getenv("PROBLEM_TOPIC_ID") or "0")
 
 
 if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN не установлен!")
+    raise ValueError("BOT_TOKEN не установлен")
 if not OPEN_ROUTER_API:
-    raise ValueError("❌ OPEN_ROUTER_API не установлен!")
+    raise ValueError("OPEN_ROUTER_API не установлен")
 
 print("Конфиг загружен")
