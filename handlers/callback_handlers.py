@@ -1,7 +1,7 @@
 from aiogram import Bot, Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from keyboard import  inline_keyboard_2, inline_keyboard_3
+from keyboard import  inline_keyboard_2
 from middleware import ModeratorMiddleware
 from states import  AllStates
 from utils.service import choose_topic, analyze_message
@@ -115,36 +115,15 @@ async def full_name_and_grade(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.in_(['request','problem']))
 async def callback_query(callback: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-
-    if current_state in ['AllStates:request', 'AllStates:problem']:
-        await callback.message.answer('Хочешь вернуться? ↩', reply_markup=inline_keyboard_3)
-        return
-
-
     if callback.data == 'request':
         await state.set_state(AllStates.request)
         await state.update_data(type='request')
         await callback.message.answer('Напиши свою идею ✏')
         logger.info('REQUEST TEXT SENT')
-                                                                  # коллбэки на инлайн клавиатуру и фсм
+
     elif callback.data == 'problem':
         await state.set_state(AllStates.problem)
         await state.update_data(type='problem')
         await callback.message.answer('Опиши проблему, которую заметил(а) в школе 🏫')
         logger.info('PROBLEM TEXT SENT')
 
-
-
-
-@router.callback_query(F.data.in_(['yes_cancel', 'no_cancel']))
-async def cancel_message(callback: CallbackQuery, state: FSMContext):         # хэндлер коллбэков отмены
-        if callback.data == 'yes_cancel':
-            await state.clear()
-            await callback.message.answer('Действие отменено\n\nЧтобы начать заново, нажми /start')
-            logger.info(f"CANCEL confirmed by {callback.from_user.username}")
-        elif callback.data == 'no_cancel':
-            current_state = await state.get_state()
-            await state.set_state(current_state)
-            await callback.message.answer('Продолжай писать свое сообщение')
-            logger.info(f"CANCEL rejected by {callback.from_user.username}")

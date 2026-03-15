@@ -56,7 +56,6 @@ async def get_all_messages(message: Message):      # команда списка
         formatted = local.strftime("%d.%m.%Y %H:%M")
         text += (
             f"📨Сообщение #{msg['id']}\n"
-            f"От: @{msg['username']}\n"
             f"Текст: {msg['message']}\n"
             f"Аноним: {msg['is_anon']}\n"
             f"Время: {formatted}\n\n"
@@ -78,7 +77,6 @@ async def get_last_messages(message: Message):
         formatted = local.strftime("%d.%m.%Y %H:%M")
         text += (
             f"📨Сообщение #{msg['id']}\n"
-            f"От: @{msg['username']}\n"
             f"Текст: {msg['message']}\n"
             f"Аноним: {msg['is_anon']}\n"
             f"Время: {formatted}\n\n"
@@ -109,8 +107,6 @@ async def get_all_users(message: Message):
 async def help_command(message: Message):
     text = (f"Привет! Команды которыми ты можешь воспользоваться:\n\n"      # инструкция
             f"/get_messages_5 - список всех сообщений\n"
-            f"/get_last_messages_10 - cписок последних десяти сообщений\n"
-            f"/get_users_5 - список всех пользователей\n"
             f"/stats_5 - статы\n"
             f"/generate_report_5 - генерация отчета исходя из всех сообщений\n"
             f"/help_5 - данная инструкция")

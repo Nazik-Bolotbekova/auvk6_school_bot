@@ -53,7 +53,7 @@ async def generate_summary(messages):
                 "Authorization": f"Bearer {OPEN_ROUTER_API}",
             },
             json={
-                "model": "google/gemma-3-4b-it:free",
+                "model": "google/gemma-3-27b-it:free",
                 "messages": [{"role": "user", "content": prompt}],
             }
         )
@@ -92,7 +92,7 @@ async def analyze_message(message_text: str):
             "https://openrouter.ai/api/v1/chat/completions",
             headers={"Authorization": f"Bearer {OPEN_ROUTER_API}"},
             json={
-                "model": "meta-llama/llama-3.3-70b-instruct:free",
+                "model": "google/gemma-3-27b-it:free",
                 "messages": [{"role": "user", "content": prompt}],
             }
         )

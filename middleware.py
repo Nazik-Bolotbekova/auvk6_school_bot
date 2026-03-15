@@ -49,7 +49,7 @@ class ModeratorMiddleware(BaseMiddleware):
 
             await self.bot.send_message(
                 self.filter_group_id,
-                f"{event.from_user.username}: {event.text}"
+                f"{event.text}"
             )
 
             if warnings == 1:
